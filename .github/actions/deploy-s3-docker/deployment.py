@@ -2,7 +2,7 @@ import os
 import boto3
 import mimetypes
 from botocore.config import Config
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError, BotoCoreError
 
 def run():
     try:
@@ -13,10 +13,11 @@ def run():
         bucket_region = os.getenv("INPUT_BUCKET-REGION")
         dist_folder = os.getenv("INPUT_DIST-FOLDER")
 
+        # Validate credentials
         if not aws_access_key or not aws_secret_key:
-            raise NoCredentialsError("AWS credentials are missing!")
+            raise NoCredentialsError  # FIXED: No custom message
 
-        # Debugging: Print credentials (mask for security)
+        # Debugging: Print credentials (masked for security)
         print(f"AWS_ACCESS_KEY_ID: {aws_access_key[:4]}****")
         print(f"AWS_SECRET_ACCESS_KEY: {aws_secret_key[:4]}****")
 
@@ -45,8 +46,14 @@ def run():
         with open(os.environ['GITHUB_OUTPUT'], 'a') as gh_output:
             print(f'website-url={website_url}', file=gh_output)
 
-    except (NoCredentialsError, PartialCredentialsError) as e:
-        print(f"Error: {e}")
+    except NoCredentialsError:
+        print("Error: AWS credentials are missing! Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.")
+
+    except PartialCredentialsError:
+        print("Error: Partial AWS credentials detected. Ensure both AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are set.")
+
+    except BotoCoreError as e:
+        print(f"Unexpected AWS SDK error: {e}")
 
 if __name__ == '__main__':
     run()
